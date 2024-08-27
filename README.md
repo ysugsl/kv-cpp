@@ -1,12 +1,3 @@
-👉 本项目为C++实现，想系统学习本项目，推荐 [卡码网【kv存储引擎-CPP】实战课](https://kamacoder.com/course.php?course_id=8)
-👉 想了解Java版本，推荐 [卡码网【kv存储引擎-Java】实战课](https://kamacoder.com/course.php?course_id=9)
-
-> 版权申明： 本项目为我（[程序员Carl](https://github.com/youngyangyang04)）的原创。引用本项目文章请注明出处，例如：转自 https://github.com/youngyangyang04/Skiplist-CPP。
-> 发现恶意抄袭或搬运，会动用法律武器维护自己的权益。让我们一起维护一个良好的技术创作环境！
-
-
-# [English Version](./README-en.md)
-
 # KV存储引擎
 
 众所周知，非关系型数据库redis，以及levedb，rockdb其核心存储引擎的数据结构就是跳表。
@@ -88,12 +79,5 @@ sh stress_test_start.sh
 * 跳表的key用int型，如果使用其他类型需要自定义比较函数，当然把这块抽象出来更好
 * 如果再加上一致性协议，例如raft就构成了分布式存储，再启动一个http server就可以对外提供分布式存储服务了
 
-# 关于作者
-
-大家好，我是程序员Carl，[《代码随想录》](https://programmercarl.com/other/publish.html)作者，哈工大师兄，先后在腾讯和百度从事分布式技术研发。
-
-* [代码随想录网站](https://programmercarl.com)
-* [代码随想录Github](https://github.com/youngyangyang04/leetcode-master)
-* [代码随想录算法公开课](https://www.bilibili.com/video/BV1fA4y1o715)
 
 
