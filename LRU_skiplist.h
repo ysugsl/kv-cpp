@@ -219,7 +219,7 @@ private:
 
     Node<K, V>* create_node(K, V, int, time_t expire_time = 0); // 创建新节点
 
-    void get_key_value_from_string(const std::string& str, std::string* key, std::string* value); // 从字符串解析键值对
+    void get_key_value_from_string(const std::string& str, std::string* key, std::string* value, std::string* expire_time_str); // 从字符串解析键值对和过期时间
 
     bool is_valid_string(const std::string& str); // 检查字符串是否有效
 
@@ -388,6 +388,15 @@ void SkipList<K, V>::delete_element(K key) {
 template<typename K, typename V>
 bool SkipList<K, V>::search_element(K key) {
     std::cout << "search_element-----------------" << std::endl;
+
+    // 先在LRU缓存中查找
+    V value;
+    if (_lru_cache->get(key, value)) {
+        std::cout << "Found key in LRU Cache: " << key << ", value: " << value << std::endl;
+        return true;
+    }
+
+    // 如果在LRU缓存中找不到，再在跳表中查找
     Node<K, V>* current = _header;
 
     for (int i = _skip_list_level; i >= 0; i--) {
@@ -398,14 +407,18 @@ bool SkipList<K, V>::search_element(K key) {
 
     current = current->forward[0];
 
-    if (current and current->get_key() == key) {
-        std::cout << "Found key: " << key << ", value: " << current->get_value() << std::endl;
+    if (current && current->get_key() == key) {
+        // 在跳表中找到，先输出并插入LRU缓存
+        value = current->get_value();
+        _lru_cache->put(key, value, current->get_expire_time());
+        std::cout << "Found key in Skip List: " << key << ", value: " << value << std::endl;
         return true;
     }
 
     std::cout << "Not Found Key:" << key << std::endl;
     return false;
 }
+
 
 // 显示跳表内容
 template<typename K, typename V>
@@ -426,54 +439,60 @@ void SkipList<K, V>::display_list() {
 template<typename K, typename V>
 void SkipList<K, V>::dump_file() {
     std::cout << "dump_file-----------------" << std::endl;
-    _file_writer.open(STORE_FILE);
-    Node<K, V>* node = this->_header->forward[0];
+    _file_writer.open(STORE_FILE); // 打开文件
+    Node<K, V>* node = this->_header->forward[0]; // 从第0层开始遍历
 
     while (node != NULL) {
-        _file_writer << node->get_key() << ":" << node->get_value() << "\n";
-        std::cout << node->get_key() << ":" << node->get_value() << ";\n";
-        node = node->forward[0];
+        // 保存键、值和过期时间，格式为 key:value:expire_time
+        _file_writer << node->get_key() << ":" << node->get_value() << ":" << node->get_expire_time() << "\n";
+        std::cout << node->get_key() << ":" << node->get_value() << ":" << node->get_expire_time() << ";\n";
+        node = node->forward[0]; // 移动到下一个节点
     }
 
-    _file_writer.flush();
-    _file_writer.close();
+    _file_writer.flush(); // 刷新缓冲区
+    _file_writer.close(); // 关闭文件
 }
 
 // 从文件加载跳表内容
 template<typename K, typename V>
 void SkipList<K, V>::load_file() {
-    _file_reader.open(STORE_FILE);
+    _file_reader.open(STORE_FILE); // 打开文件
     std::cout << "load_file-----------------" << std::endl;
     std::string line;
     std::string* key = new std::string();
     std::string* value = new std::string();
-    while (getline(_file_reader, line)) {
-        get_key_value_from_string(line, key, value);
-        if (key->empty() || value->empty()) {
+    std::string* expire_time_str = new std::string();
+    time_t now = time(nullptr);
+
+    while (getline(_file_reader, line)) { // 逐行读取
+        get_key_value_from_string(line, key, value, expire_time_str); // 解析键值对和过期时间
+        if (key->empty() || value->empty() || expire_time_str->empty()) {
             continue;
         }
-        insert_element(stoi(*key), *value);
-        std::cout << "key:" << *key << "value:" << *value << std::endl;
+        time_t expire_time = std::stol(*expire_time_str);
+        if (expire_time > now) { // 仅在未过期的情况下插入跳表
+            insert_element(stoi(*key), *value, expire_time);
+            std::cout << "key:" << *key << " value:" << *value << " expire_time:" << *expire_time_str << std::endl;
+        } else {
+            std::cout << "Expired key:" << *key << " skipped." << std::endl;
+        }
     }
+
     delete key;
     delete value;
-    _file_reader.close();
+    delete expire_time_str;
+    _file_reader.close(); // 关闭文件
 }
 
-// 获取跳表当前大小
+// 从字符串解析键值对和过期时间
 template<typename K, typename V>
-int SkipList<K, V>::size() {
-    return _element_count;
-}
-
-// 从字符串解析键值对
-template<typename K, typename V>
-void SkipList<K, V>::get_key_value_from_string(const std::string& str, std::string* key, std::string* value) {
+void SkipList<K, V>::get_key_value_from_string(const std::string& str, std::string* key, std::string* value, std::string* expire_time_str) {
     if (!is_valid_string(str)) {
         return;
     }
     *key = str.substr(0, str.find(delimiter));
-    *value = str.substr(str.find(delimiter) + 1, str.length());
+    *value = str.substr(str.find(delimiter) + 1, str.rfind(delimiter) - str.find(delimiter) - 1);
+    *expire_time_str = str.substr(str.rfind(delimiter) + 1);
 }
 
 // 检查字符串是否有效
