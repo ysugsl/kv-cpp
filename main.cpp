@@ -1,36 +1,53 @@
 #include <iostream>
-#include "skiplist.h"
+#include <ctime>
+#include "LRU_skiplist.h"
 #define FILE_PATH "./store/dumpFile"
 
 int main() {
+    // 创建一个跳表对象，最大层数为5，LRU缓存的容量为3
+    SkipList<int, std::string> skipList(5, 3);
 
-    // 键值中的key用int型，如果用其他类型，需要自定义比较函数
-    // 而且如果修改key的类型，同时需要修改skipList.load_file函数
-    SkipList<int, std::string> skipList(6);
-	skipList.insert_element(1, "test1");
-	skipList.insert_element(3, "test3");
-	skipList.insert_element(7, "test7");
-	skipList.insert_element(8, "test8");
-	skipList.insert_element(9, "test9");
-	skipList.insert_element(19, "test19");
-	skipList.insert_element(19, "test19_1");
+    // 插入一些数据，设置不同的过期时间
+    std::cout << "Inserting data..." << std::endl;
+    skipList.insert_element(1, "data1", time(nullptr) + 10);  // 10秒后过期
+    skipList.insert_element(2, "data2", 0);  // 永不过期
+    skipList.insert_element(3, "data3", time(nullptr) + 5);   // 5秒后过期
+    skipList.insert_element(4, "data4", time(nullptr) + 15);  // 15秒后过期
 
-    std::cout << "skipList size:" << skipList.size() << std::endl;
-
-    skipList.dump_file();
-
-    // skipList.load_file();
-
-    skipList.search_element(9);
-    skipList.search_element(18);
-
-
+    // 显示跳表内容
+    std::cout << "\nDisplaying SkipList after insertions:" << std::endl;
     skipList.display_list();
 
-    skipList.delete_element(3);
-    skipList.delete_element(7);
+    // 测试查找功能
+    std::cout << "\nSearching for data with key 2 (should be found):" << std::endl;
+    if (skipList.search_element(2)) {
+        std::cout << "Key 2 found in SkipList." << std::endl;
+    } else {
+        std::cout << "Key 2 not found in SkipList." << std::endl;
+    }
 
-    std::cout << "skipList size:" << skipList.size() << std::endl;
+    // 等待6秒后再查找已过期的数据
+    std::cout << "\nWaiting 6 seconds for some data to expire..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(6));
 
+    std::cout << "\nSearching for data with key 3 (should be expired):" << std::endl;
+    if (skipList.search_element(3)) {
+        std::cout << "Key 3 found in SkipList." << std::endl;
+    } else {
+        std::cout << "Key 3 not found (expired or not present)." << std::endl;
+    }
+
+    // 显示跳表内容
+    std::cout << "\nDisplaying SkipList after expiration:" << std::endl;
     skipList.display_list();
+
+    // 删除数据
+    std::cout << "\nDeleting data with key 2..." << std::endl;
+    skipList.delete_element(2);
+
+    // 显示跳表内容
+    std::cout << "\nDisplaying SkipList after deletion:" << std::endl;
+    skipList.display_list();
+
+    return 0;
 }

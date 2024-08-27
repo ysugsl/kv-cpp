@@ -102,7 +102,7 @@ public:
 
     bool get(const K& key, V& value); // 获取键对应的值
 
-    void put(const K& key, const V& value, time_t expire_time); // 插入键值对并设置过期时间
+    void put(const K& key, const V& value, time_t expire_time = 0); // 插入键值对并设置过期时间
 
     void remove(const K& key); // 移除指定键的元素
 
@@ -132,7 +132,20 @@ bool LRUCache<K, V>::get(const K& key, V& value) {
     if (it == item_map.end()) {
         return false; // 未找到该键
     }
-    value = it->second->second->get_value();
+
+    Node<K, V>* node = it->second->second;
+    time_t now = time(nullptr);
+
+    // 检查过期时间
+    if (node->get_expire_time() != 0 && node->get_expire_time() <= now) {
+        // 过期则删除缓存中的数据
+        item_list.erase(it->second);
+        delete node;
+        item_map.erase(it);
+        return false; // 返回未找到
+    }
+
+    value = node->get_value();
     item_list.splice(item_list.begin(), item_list, it->second); // 将节点移动到链表头部
     return true;
 }
@@ -178,7 +191,7 @@ template<typename K, typename V>
 void LRUCache<K, V>::evict_expired_items() {
     time_t now = time(nullptr);
     for (auto it = item_list.begin(); it != item_list.end();) {
-        if (it->second->get_expire_time() <= now) { // 检查是否过期
+        if (it->second->get_expire_time() != 0 && it->second->get_expire_time() <= now) { // 检查是否过期
             auto erase_it = it++;
             item_map.erase(erase_it->first);
             delete erase_it->second;
@@ -419,7 +432,6 @@ bool SkipList<K, V>::search_element(K key) {
     return false;
 }
 
-
 // 显示跳表内容
 template<typename K, typename V>
 void SkipList<K, V>::display_list() {
@@ -438,50 +450,43 @@ void SkipList<K, V>::display_list() {
 // 保存跳表内容到文件
 template<typename K, typename V>
 void SkipList<K, V>::dump_file() {
+
     std::cout << "dump_file-----------------" << std::endl;
-    _file_writer.open(STORE_FILE); // 打开文件
-    Node<K, V>* node = this->_header->forward[0]; // 从第0层开始遍历
+    _file_writer.open(STORE_FILE);
+    Node<K, V> *node = this->_header->forward[0];
 
     while (node != NULL) {
-        // 保存键、值和过期时间，格式为 key:value:expire_time
-        _file_writer << node->get_key() << ":" << node->get_value() << ":" << node->get_expire_time() << "\n";
-        std::cout << node->get_key() << ":" << node->get_value() << ":" << node->get_expire_time() << ";\n";
-        node = node->forward[0]; // 移动到下一个节点
+        _file_writer << node->get_key() << ":" << node->get_value() << "\n";
+        std::cout << node->get_key() << ":" << node->get_value() << ";\n";
+        node = node->forward[0];
     }
 
-    _file_writer.flush(); // 刷新缓冲区
-    _file_writer.close(); // 关闭文件
+    _file_writer.flush();
+    _file_writer.close();
+    return ;
 }
 
 // 从文件加载跳表内容
 template<typename K, typename V>
 void SkipList<K, V>::load_file() {
-    _file_reader.open(STORE_FILE); // 打开文件
+
+    _file_reader.open(STORE_FILE);
     std::cout << "load_file-----------------" << std::endl;
     std::string line;
     std::string* key = new std::string();
     std::string* value = new std::string();
-    std::string* expire_time_str = new std::string();
-    time_t now = time(nullptr);
-
-    while (getline(_file_reader, line)) { // 逐行读取
-        get_key_value_from_string(line, key, value, expire_time_str); // 解析键值对和过期时间
-        if (key->empty() || value->empty() || expire_time_str->empty()) {
+    while (getline(_file_reader, line)) {
+        get_key_value_from_string(line, key, value);
+        if (key->empty() || value->empty()) {
             continue;
         }
-        time_t expire_time = std::stol(*expire_time_str);
-        if (expire_time > now) { // 仅在未过期的情况下插入跳表
-            insert_element(stoi(*key), *value, expire_time);
-            std::cout << "key:" << *key << " value:" << *value << " expire_time:" << *expire_time_str << std::endl;
-        } else {
-            std::cout << "Expired key:" << *key << " skipped." << std::endl;
-        }
+        // Define key as int type
+        insert_element(stoi(*key), *value);
+        std::cout << "key:" << *key << "value:" << *value << std::endl;
     }
-
     delete key;
     delete value;
-    delete expire_time_str;
-    _file_reader.close(); // 关闭文件
+    _file_reader.close();
 }
 
 // 从字符串解析键值对和过期时间
