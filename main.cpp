@@ -1,53 +1,63 @@
-#include <iostream>
-#include <ctime>
-#include "LRU_skiplist.h"
-#define FILE_PATH "./store/dumpFile"
+#include "Timer_LRU_SkipList.h"
 
 int main() {
-    // 创建一个跳表对象，最大层数为5，LRU缓存的容量为3
-    SkipList<int, std::string> skipList(5, 3);
+    // 创建一个跳表，最大层数为10，LRU缓存容量为100，定时任务每60秒执行一次
+    SkipList<int, std::string> skip_list(10, 100, 60000);
 
-    // 插入一些数据，设置不同的过期时间
-    std::cout << "Inserting data..." << std::endl;
-    skipList.insert_element(1, "data1", time(nullptr) + 10);  // 10秒后过期
-    skipList.insert_element(2, "data2", 0);  // 永不过期
-    skipList.insert_element(3, "data3", time(nullptr) + 5);   // 5秒后过期
-    skipList.insert_element(4, "data4", time(nullptr) + 15);  // 15秒后过期
-
-    // 显示跳表内容
-    std::cout << "\nDisplaying SkipList after insertions:" << std::endl;
-    skipList.display_list();
-
-    // 测试查找功能
-    std::cout << "\nSearching for data with key 2 (should be found):" << std::endl;
-    if (skipList.search_element(2)) {
-        std::cout << "Key 2 found in SkipList." << std::endl;
-    } else {
-        std::cout << "Key 2 not found in SkipList." << std::endl;
+    // 插入100个元素，每个元素的过期时间不同
+    for (int i = 1; i <= 100; ++i) {
+        // 将每个元素的过期时间设置为当前时间 + i 秒，方便观察逐渐过期
+        skip_list.insert_element(i, "value" + std::to_string(i), time(nullptr) + i);
     }
 
-    // 等待6秒后再查找已过期的数据
-    std::cout << "\nWaiting 6 seconds for some data to expire..." << std::endl;
-    std::this_thread::sleep_for(std::chrono::seconds(6));
+    // 显示初始跳表内容
+    std::cout << "Initial Skip List with 100 elements inserted: " << std::endl;
+    skip_list.display_list();
 
-    std::cout << "\nSearching for data with key 3 (should be expired):" << std::endl;
-    if (skipList.search_element(3)) {
-        std::cout << "Key 3 found in SkipList." << std::endl;
-    } else {
-        std::cout << "Key 3 not found (expired or not present)." << std::endl;
+    // 查找一些元素，测试查找功能
+    for (int i = 10; i <= 50; i += 10) {
+        if (skip_list.search_element(i)) {
+            std::cout << "Found key " << i << " in skip list." << std::endl;
+        } else {
+            std::cout << "Key " << i << " not found." << std::endl;
+        }
     }
 
-    // 显示跳表内容
-    std::cout << "\nDisplaying SkipList after expiration:" << std::endl;
-    skipList.display_list();
+    // 等待一段时间，模拟部分元素过期
+    std::cout << "Sleeping for 30 seconds to allow some items to expire..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(30));
 
-    // 删除数据
-    std::cout << "\nDeleting data with key 2..." << std::endl;
-    skipList.delete_element(2);
+    // 清理过期项
+    skip_list.evict_expired_items();
 
-    // 显示跳表内容
-    std::cout << "\nDisplaying SkipList after deletion:" << std::endl;
-    skipList.display_list();
+    // 显示跳表内容，过期元素应被清理
+    std::cout << "Skip List after cleaning expired elements: " << std::endl;
+    skip_list.display_list();
+
+    // 删除一些元素
+    skip_list.delete_element(5);
+    skip_list.delete_element(20);
+    skip_list.delete_element(50);
+
+    std::cout << "Skip List after deleting keys 5, 20, and 50: " << std::endl;
+    skip_list.display_list();
+
+    // 再次插入新的元素，覆盖之前的一些键
+    for (int i = 90; i <= 100; ++i) {
+        skip_list.insert_element(i, "new_value" + std::to_string(i), time(nullptr) + 60); // 60秒后过期
+    }
+
+    std::cout << "Skip List after reinserting some keys with updated values: " << std::endl;
+    skip_list.display_list();
+
+    // 等待一段时间，确保定期任务（清理过期项和存盘）运行
+    std::cout << "Sleeping for 1 minute to observe the periodic task..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::minutes(1));
+
+    // 再次显示跳表内容，检查自动清理效果
+    std::cout << "Final Skip List: " << std::endl;
+    skip_list.display_list();
 
     return 0;
 }
+
